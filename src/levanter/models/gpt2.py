@@ -20,7 +20,7 @@ from haliax.nn.linear import Linear
 from haliax.partitioning import logically_sharded
 from levanter import jax_utils
 from levanter.compat.torch_serialization import StateDict, TorchSerializationMixin, apply_prefix, reshape_linear_layer
-from levanter.flash_attention import multiheaded_causal_flash_attention
+from levanter.flash_attention import multiheaded_causal_flash_attention  # type: ignore
 from levanter.jax_utils import named_call
 from levanter.modeling_utils import ACT2FN
 
@@ -135,7 +135,7 @@ class Gpt2Attention(TorchSerializationMixin, eqx.Module):
         query, key, value = map(
             lambda x: x.rearrange((self.Heads, self.SeqLen, self.HeadDim)).array, (query, key, value)
         )
-        attn_output = multiheaded_causal_flash_attention(query, key, value)[0]
+        attn_output = multiheaded_causal_flash_attention(query, key, value)
         attn_output = NamedArray(attn_output, (self.Heads, self.SeqLen, self.HeadDim))
 
         # KeySeqLen = self.SeqLen.alias("KeySeqLen")  # haliax doesn't support unnamed axes or duplicate axes
