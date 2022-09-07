@@ -5,6 +5,7 @@ import jax
 import jax.numpy as jnp
 import jax.random as jrandom
 import numpy as onp
+import optax
 import pytest
 from jax.random import PRNGKey
 from transformers import AutoModelForCausalLM
@@ -21,6 +22,18 @@ def has_torch():
         return True
     except ImportError:
         return False
+
+
+def _rand_input(key: PRNGKey, num: int, seq_len: int, vocab_size: int) -> jnp.ndarray:
+    return jrandom.randint(
+        key,
+        (
+            num,
+            seq_len,
+        ),
+        0,
+        vocab_size,
+    )
 
 
 @pytest.mark.skipif(not has_torch(), reason="torch not installed")
@@ -49,18 +62,7 @@ def _roundtrip_compare_gpt2_checkpoint(model_id, revision):
 
     model = load_hf_gpt2_checkpoint(model_id, revision=revision)
 
-    def rand_input(key: PRNGKey, num: int, seq_len: int) -> jnp.ndarray:
-        return jrandom.randint(
-            key,
-            (
-                num,
-                seq_len,
-            ),
-            0,
-            config.vocab_size,
-        )
-
-    input = rand_input(PRNGKey(0), 1, config.n_positions)
+    input = _rand_input(PRNGKey(0), 1, config.n_positions, config.vocab_size)
 
     # we compare softmaxes because the numerics are wonky and we usually just care about the softmax
     torch_out = torch_model(torch.from_numpy(onp.array(input)).to(torch.int32))
@@ -115,7 +117,7 @@ def _compare_gpt2_checkpoint_gradients(model_id, revision):
     torch_out = torch_loss(torch_model, torch.from_numpy(onp.array(input)).to(torch.int64))
 
     def compute_loss(model, input_ids):
-        pred_y = model(input_ids, key=None)
+        pred_y = model(input_ids, key=None, inference=True)
         token_loss = jnp.mean(
             optax.softmax_cross_entropy(
                 pred_y[:-1],
@@ -133,12 +135,15 @@ def _compare_gpt2_checkpoint_gradients(model_id, revision):
     torch_dict = torch_model.transformer.state_dict(keep_vars=True)
     torch_dict = {k: v.grad for k, v in torch_dict.items()}
 
-    jax_grads = jax.tree_util.tree_leaves(jax_grad)
-    jax_grad_keys = jax_grad.torch_key_leaves()
+    jax_grad_dict = jax_grad.to_torch_dict()
 
-    for jax_g, jax_key in zip(jax_grads, jax_grad_keys):
+    for jax_key, jax_grad in jax_grad_dict.items():
+        if jax_grad is None:
+            continue
         torch_g = torch_dict[jax_key]
-        assert onp.isclose(jax_g, torch_g.detach().cpu().numpy(), rtol=1e-2, atol=1e-2).all(), f"{jax_g} != {torch_g}"
+        assert onp.isclose(
+            jax_grad, torch_g.detach().cpu().numpy(), rtol=1e-2, atol=1e-2
+        ).all(), f"{jax_grad} != {torch_g}"
 
     # now we also want to check that the optimizers do similar things
     trainer_config = TrainerConfig(weight_decay=0.0, learning_rate=1e-3, warmup_ratio=0.0)
@@ -160,17 +165,16 @@ def _compare_gpt2_checkpoint_gradients(model_id, revision):
     updates, state = jax_optimizer.update(updates=jax_grad, state=state, params=model)
     new_model = equinox.apply_updates(model, updates)
 
-    new_leaves = jax.tree_util.tree_leaves(new_model)
+    new_leaves = new_model.to_torch_dict()
     torch_dict = torch_model.transformer.state_dict(keep_vars=True)
-    old_leaves = jax.tree_util.tree_leaves(model)
 
     # now compare new params
-    for leaf, key, old_leaf in zip(new_leaves, jax_grad_keys, old_leaves):
-        print(key)
+    for key in new_leaves.keys():
+        if new_leaves[key] is None:
+            continue
         torch_leaf = torch_dict[key]
+        leaf = new_leaves[key]
         # print the distance between the two
-        print(onp.linalg.norm(leaf - torch_leaf.detach().cpu().numpy(), ord=onp.inf))
-        print(onp.linalg.norm(old_leaf - torch_leaf.detach().cpu().numpy(), ord=onp.inf))
         assert onp.isclose(
             leaf, torch_leaf.detach().cpu().numpy(), rtol=1e-2, atol=1e-2
         ).all(), f"{key}: {leaf} != {torch_leaf}"
