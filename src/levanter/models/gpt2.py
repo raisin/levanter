@@ -5,8 +5,9 @@ from typing import Callable, Dict, List, Optional, cast
 import equinox as eqx
 import equinox.nn as nn
 import jax
-import jax.lax as lax
-import jax.nn as jnn
+
+# import jax.lax as lax
+# import jax.nn as jnn
 import jax.numpy as jnp
 import jax.random as jrandom
 import jmp
@@ -127,11 +128,13 @@ class Gpt2Attention(TorchSerializationMixin, eqx.Module):
     @named_call
     def __call__(self, hidden_states: NamedArray, layer_idx, inference: bool = True, *, key):
         # hidden_states has shape [seq_len, embed_dim]
-        rng_key = key
+        # rng_key = key
 
         qkv_out = logically_sharded(self.c_attn(hidden_states))  # [seq_len, 3, heads, head_dim]
         query, key, value = logically_sharded(qkv_out.unbind(self.Qkv))
-        query, key, value = map(lambda x: x.rearrange((self.Heads, self.SeqLen, self.HeadDim)).array, (query, key, value))
+        query, key, value = map(
+            lambda x: x.rearrange((self.Heads, self.SeqLen, self.HeadDim)).array, (query, key, value)
+        )
         attn_output = multiheaded_causal_flash_attention(query, key, value)[0]
         attn_output = NamedArray(attn_output, (self.Heads, self.SeqLen, self.HeadDim))
 
@@ -165,7 +168,7 @@ class Gpt2Attention(TorchSerializationMixin, eqx.Module):
         # attn_weights = NamedArray(attn_weights, attn_axes)
         #
         # attn_output = hax.dot(KeySeqLen, attn_weights, value)  # [heads, seq_len, head_dim]
-        #
+        attn_output = self.mp.cast_to_compute(attn_output)
         attn_output = self.c_proj(attn_output)
 
         assert attn_output.dtype == self.mp.compute_dtype
