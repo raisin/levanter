@@ -278,6 +278,7 @@ class Gpt2Block(TorchSerializationMixin, eqx.Module):
         attn_output = self.attn(h, inference=inference, layer_idx=layer_idx, key=k1)
         dout = self.resid_dropout(attn_output.array, key=k2, inference=inference)
         hidden_states = residual + dout
+        assert hidden_states.dtype == self.mp.compute_dtype
 
         residual = hidden_states
         hidden_states = jax.vmap(self.ln_2)(hidden_states)
@@ -286,8 +287,7 @@ class Gpt2Block(TorchSerializationMixin, eqx.Module):
         ff_output = self.mlp(h)
         dout = self.resid_dropout(ff_output.array, key=k3, inference=inference)
         hidden_states = residual + dout
-
-        assert attn_output.dtype == self.mp.compute_dtype
+        assert hidden_states.dtype == self.mp.compute_dtype
 
         return hidden_states
 
