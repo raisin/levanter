@@ -19,6 +19,7 @@ from haliax.nn.linear import Linear
 from haliax.partitioning import logically_sharded
 from levanter import jax_utils
 from levanter.compat.torch_serialization import StateDict, TorchSerializationMixin, apply_prefix, reshape_linear_layer
+from levanter.flash_attention import multiheaded_causal_flash_attention
 from levanter.jax_utils import named_call
 from levanter.modeling_utils import ACT2FN
 
@@ -130,38 +131,41 @@ class Gpt2Attention(TorchSerializationMixin, eqx.Module):
 
         qkv_out = logically_sharded(self.c_attn(hidden_states))  # [seq_len, 3, heads, head_dim]
         query, key, value = logically_sharded(qkv_out.unbind(self.Qkv))
+        query, key, value = map(lambda x: x.rearrange((self.Heads, self.SeqLen, self.HeadDim)).array, (query, key, value))
+        attn_output = multiheaded_causal_flash_attention(query, key, value)[0]
+        attn_output = NamedArray(attn_output, (self.Heads, self.SeqLen, self.HeadDim))
 
-        KeySeqLen = self.SeqLen.alias("KeySeqLen")  # haliax doesn't support unnamed axes or duplicate axes
-        key = key.rename({self.SeqLen: KeySeqLen})
-        value = value.rename({self.SeqLen: KeySeqLen})
-
-        # mistral tweak
-        scale = lax.rsqrt(float(self.HeadDim.size))
-        if self.scale_by_inverse_layer_idx:
-            scale /= layer_idx + 1.0
-
-        # do this first to help keep FP values small
-        query = query * scale
-
-        attn_weights = hax.dot(self.HeadDim, query, key)
-        attn_weights = hax.rearrange(attn_weights, (..., self.Heads, self.SeqLen, KeySeqLen))
-        attn_axes = attn_weights.axes
-        attn_weights = attn_weights.array
-
-        if self.causal:
-            # TODO(haliax) add tril to hax
-            causal_mask = jnp.tril(jnp.ones((self.SeqLen.size, KeySeqLen.size), dtype=jnp.bool_))
-
-            # TODO(haliax): add where ops to hax
-            attn_weights = jnp.where(causal_mask, attn_weights, -1e9)
-
-        attn_weights = jnn.softmax(attn_weights)  # heads, seqlen, seqlen
-        attn_weights = self.mp.cast_to_compute(attn_weights)
-        attn_weights = self.dropout(attn_weights, key=rng_key, inference=inference)
-        attn_weights = NamedArray(attn_weights, attn_axes)
-
-        attn_output = hax.dot(KeySeqLen, attn_weights, value)  # [heads, seq_len, head_dim]
-
+        # KeySeqLen = self.SeqLen.alias("KeySeqLen")  # haliax doesn't support unnamed axes or duplicate axes
+        # key = key.rename({self.SeqLen: KeySeqLen})
+        # value = value.rename({self.SeqLen: KeySeqLen})
+        #
+        # # mistral tweak
+        # scale = lax.rsqrt(float(self.HeadDim.size))
+        # if self.scale_by_inverse_layer_idx:
+        #     scale /= layer_idx + 1.0
+        #
+        # # do this first to help keep FP values small
+        # query = query * scale
+        #
+        # attn_weights = hax.dot(self.HeadDim, query, key)
+        # attn_weights = hax.rearrange(attn_weights, (..., self.Heads, self.SeqLen, KeySeqLen))
+        # attn_axes = attn_weights.axes
+        # attn_weights = attn_weights.array
+        #
+        # if self.causal:
+        #     # TODO(haliax) add tril to hax
+        #     causal_mask = jnp.tril(jnp.ones((self.SeqLen.size, KeySeqLen.size), dtype=jnp.bool_))
+        #
+        #     # TODO(haliax): add where ops to hax
+        #     attn_weights = jnp.where(causal_mask, attn_weights, -1e9)
+        #
+        # attn_weights = jnn.softmax(attn_weights)  # heads, seqlen, seqlen
+        # attn_weights = self.mp.cast_to_compute(attn_weights)
+        # attn_weights = self.dropout(attn_weights, key=rng_key, inference=inference)
+        # attn_weights = NamedArray(attn_weights, attn_axes)
+        #
+        # attn_output = hax.dot(KeySeqLen, attn_weights, value)  # [heads, seq_len, head_dim]
+        #
         attn_output = self.c_proj(attn_output)
 
         assert attn_output.dtype == self.mp.compute_dtype
