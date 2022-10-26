@@ -7,6 +7,7 @@ from typing import List, Optional, Tuple
 import braceexpand
 import datasets
 import fsspec
+import numpy
 from transformers import AutoTokenizer
 from transformers.tokenization_utils import PreTrainedTokenizer
 
@@ -19,20 +20,21 @@ class PassthroughTokenizer(PreTrainedTokenizer):
         super().__init__(**kwargs)
         self._vocab_size = vocab_size
         self._eos = self._vocab_size - 1
+        self._eos_token = str(self._eos)
 
     @property
     def vocab_size(self) -> int:
         return self._vocab_size
 
     @property
-    def eos_token(self) -> int:
-        return self._eos
+    def eos_token(self) -> str:
+        return self._eos_token
 
     def save_vocabulary(self, save_directory: str, filename_prefix: Optional[str] = None) -> Tuple[str, ...]:
         return ()
 
     def _tokenize(self, text, **kwargs):
-        tokens = [int(token) for token in text.strip().split(" ") if token != '']
+        tokens = numpy.fromstring(text, dtype=int, sep=" ")
         return tokens
 
     def _convert_token_to_id(self, token: str) -> int:
@@ -61,7 +63,7 @@ class LMDatasetConfig:
     @cached_property
     def the_tokenizer(self):
         if self.tokenizer == "passthrough":
-            return PassthroughTokenizer(34026) # hard-coding the vocab size for now
+            return PassthroughTokenizer(34026)  # hard-coding the vocab size for now
         else:
             return AutoTokenizer.from_pretrained(self.tokenizer)
 
