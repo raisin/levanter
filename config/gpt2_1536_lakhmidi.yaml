@@ -28,3 +28,6 @@ trainer:
   # ZERO-3
   parameter_axis_resources:
     embed: "data"
+
+  wandb:
+    project: "levanter-lakhmidi"
