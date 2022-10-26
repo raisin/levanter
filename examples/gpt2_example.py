@@ -24,7 +24,6 @@ import jax.numpy as jnp
 import jax.profiler
 import jax.random as jrandom
 import pyrallis
-from transformers import GPT2Tokenizer
 
 import wandb
 from levanter.checkpoint import load_checkpoint
@@ -50,7 +49,7 @@ class TrainGpt2Config:
 def main(config: TrainGpt2Config):
     config.trainer.initialize(config)
 
-    tokenizer: GPT2Tokenizer = config.data.the_tokenizer
+    tokenizer = config.data.the_tokenizer
     dataset = ShardedIndexedDataset(
         config.data.build_or_load_document_cache("train"),
         config.trainer.train_mesh_info,

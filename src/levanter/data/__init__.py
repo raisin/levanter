@@ -2,20 +2,49 @@ import json
 import os
 from dataclasses import dataclass
 from functools import cached_property
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import braceexpand
 import datasets
 import fsspec
 from transformers import AutoTokenizer
+from transformers.tokenization_utils import PreTrainedTokenizer
 
 from levanter.data.text import TokenizedDocumentCache, tokenize_batch
 from levanter.data.utils import batched
 
 
+class PassthroughTokenizer(PreTrainedTokenizer):
+    def __init__(self, vocab_size, **kwargs):
+        super().__init__(**kwargs)
+        self._vocab_size = vocab_size
+        self._eos = self._vocab_size - 1
+
+    @property
+    def vocab_size(self) -> int:
+        return self._vocab_size
+
+    @property
+    def eos_token(self) -> int:
+        return self._eos
+
+    def save_vocabulary(self, save_directory: str, filename_prefix: Optional[str] = None) -> Tuple[str, ...]:
+        return ()
+
+    def _tokenize(self, text, **kwargs):
+        tokens = [int(token) for token in text.strip().split(" ") if token != '']
+        return tokens
+
+    def _convert_token_to_id(self, token: str) -> int:
+        return int(token)
+
+    def _convert_id_to_token(self, index: int) -> str:
+        return str(index)
+
+
 @dataclass
 class LMDatasetConfig:
-    """This class supports loading data both from HF Datasets and from a raw dataset of jsonl urls"""
+    """This class supports loading data from HF Datasets, a raw dataset of jsonl urls, or a raw dataset of text urls"""
 
     id: Optional[str] = None  # id (or path) for hf dataset
     name: Optional[str] = None  # name for hf dataset
@@ -25,12 +54,16 @@ class LMDatasetConfig:
     validation_urls: List[str] = ()  # type:ignore
 
     tokenizer: str = "gpt2"
+    plaintext: bool = False
     enforce_eos: bool = True
     text_key: str = "text"  # key for the text field in the jsonl file or hf dataset
 
     @cached_property
     def the_tokenizer(self):
-        return AutoTokenizer.from_pretrained(self.tokenizer)
+        if self.tokenizer == "passthrough":
+            return PassthroughTokenizer(34026) # hard-coding the vocab size for now
+        else:
+            return AutoTokenizer.from_pretrained(self.tokenizer)
 
     def doc_iterator(self, split: str):
         if self.id is not None:
@@ -54,7 +87,11 @@ class LMDatasetConfig:
             for file in files:
                 with file as f:
                     for line in f.readlines():
-                        text = json.loads(line.decode("utf-8"))[self.text_key]
+                        if self.plaintext:
+                            text = line.decode("utf-8")
+                        else:
+                            text = json.loads(line.decode("utf-8"))[self.text_key]
+
                         if self.enforce_eos:
                             text += self.the_tokenizer.eos_token
                         yield text
