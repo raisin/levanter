@@ -3,6 +3,7 @@ import logging
 import time
 from typing import Callable, Iterator, Optional, TypeVar
 
+import jax
 import jax.numpy as jnp
 from tqdm import tqdm
 
@@ -33,6 +34,8 @@ def save_model(run_dir, prepare_fn=None):
                 step=info.step,
                 checkpoint_path=f"{run_dir}/step-{info.step}",
             )
+            
+        jax.lib.xla_bridge.get_backend().defragment()
 
     return save
 
