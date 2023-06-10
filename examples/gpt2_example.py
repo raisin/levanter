@@ -79,7 +79,7 @@ def main(config: TrainGpt2Config):
         compute_axis_mapping,
     )
 
-    with config.trainer.device_mesh as mesh:
+    with config.trainer.device_mesh as mesh, jax.profiler.trace("profiling/", create_perfetto_link=True):
         # randomness in jax is tightly controlled by "keys" which are the states of the random number generators
         # this makes deterministic training pretty easy
         seed = config.trainer.seed
@@ -272,5 +272,4 @@ def main(config: TrainGpt2Config):
 
 
 if __name__ == "__main__":
-    with jax.profiler.trace("profiling/", create_perfetto_link=True):
-        main()
+    main()
