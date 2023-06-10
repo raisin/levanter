@@ -271,4 +271,5 @@ def main(config: TrainGpt2Config):
 
 
 if __name__ == "__main__":
-    main()
+    with jax.profiler.trace("profiling/", create_perfetto_link=True):
+        main()
