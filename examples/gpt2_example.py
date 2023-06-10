@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import equinox as eqx
+import jax
 import jax.random as jrandom
 import jmp
 from jax.sharding import PartitionSpec
