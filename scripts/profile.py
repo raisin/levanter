@@ -13,13 +13,13 @@ def matrix_multiply_in_jax():
 
 def main():
     profiler_path = "profiling/"
-    # "gs://levanter-data/dev/ivan/profiling/adhoc/"
-    with jax.profiler.trace(profiler_path, create_perfetto_link=True):
-        matrix_multiply_in_jax()
+    # with jax.profiler.trace(profiler_path, create_perfetto_link=True):
+    #     matrix_multiply_in_jax()
     
-    # jax.profiler.start_trace(profiler_path)
-    # jax.block_until_ready(matrix_multiply_in_jax())
-    # jax.profiler.stop_trace()
+    jax.profiler.start_trace(profiler_path)
+    jax.profiler.start_server(9999)
+    jax.block_until_ready(matrix_multiply_in_jax())
+    jax.profiler.stop_trace()
 
 
 
