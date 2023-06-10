@@ -12,7 +12,7 @@ def matrix_multiply_in_jax():
 
 
 def main():
-    profiler_path = "profiling/" # "gs://levanter-data/dev/ivan/profiling/adhoc/"
+    profiler_path = "gs://levanter-data/dev/ivan/profiling/adhoc/"
     with jax.profiler.trace(profiler_path, create_perfetto_link=True):
         matrix_multiply_in_jax()
     
