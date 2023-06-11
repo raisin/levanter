@@ -247,16 +247,17 @@ def main(config: TrainGpt2Config):
             if step == initial_step + 1:
                 jax.profiler.start_trace("profiling/")
                 jax.profiler.start_server(9999)
-            with capture_time() as step_time, jax.profiler.StepTraceAnnotation("train", step_num=step):
-                with log_time_to_wandb("throughput/loading_time", step=step):
-                    input_ids = next(iter_data)
-                    my_key, training_key = jrandom.split(training_key, 2)
-                    example_keys = global_key_array(
-                        my_key, config.trainer.train_batch_size, mesh, PartitionSpec(ResourceAxis.DATA)
-                    )
+            with capture_time() as step_time:
+                with jax.profiler.StepTraceAnnotation("train", step_num=step):
+                    with log_time_to_wandb("throughput/loading_time", step=step):
+                        input_ids = next(iter_data)
+                        my_key, training_key = jrandom.split(training_key, 2)
+                        example_keys = global_key_array(
+                            my_key, config.trainer.train_batch_size, mesh, PartitionSpec(ResourceAxis.DATA)
+                        )
 
-                jax_step_loss, model, opt_state = train_step(model, opt_state, input_ids, example_keys)
-                step_loss = jax_step_loss.item()
+                    jax_step_loss, model, opt_state = train_step(model, opt_state, input_ids, example_keys)
+                    step_loss = jax_step_loss.item()
 
             with log_time_to_wandb("throughput/hook_time", step=step):
                 engine.run_hooks(StepInfo(step, model, opt_state, step_loss, training_key, step_duration=step_time()))
