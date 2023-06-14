@@ -1,0 +1,34 @@
+data:
+  #train_urls:
+  #validation_urls:
+  cache_dir: "gs://levanter-data/tokenized/pile-old/"
+  tokenizer: "EleutherAI/gpt-neox-20b"
+model:
+  hidden_dim: 5120
+  num_heads: 40
+  num_layers: 40
+  seq_len: 2048
+  gradient_checkpointing: true
+  scale_attn_by_inverse_layer_idx: true
+  attn_pdrop: 0.0
+  resid_pdrop: 0.0
+  use_bias: false
+fcm_prob: 0.15
+trainer:
+  wandb:
+    project: "levanter"
+    tags: ["pile", "gpt2"]
+
+  mp: p=f32,c=bfloat16
+
+  model_axis_size: 1
+  per_device_parallelism: -1
+  per_device_eval_parallelism: -1
+
+  train_batch_size: 1024
+  num_train_steps: 100000
+  steps_per_eval: 500
+optimizer:
+  learning_rate: 1.2E-4
+  weight_decay: 0.1
+  min_lr_ratio: 0.1
