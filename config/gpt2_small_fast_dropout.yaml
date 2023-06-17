@@ -24,6 +24,9 @@ trainer:
 
   train_batch_size: 256
   num_train_steps: 20000
+
+  jax_config:
+    jax_default_prng_impl: "unsafe_rbg"
 optimizer:
   learning_rate: 1E-3
   weight_decay: 0.1
