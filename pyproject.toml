@@ -1,26 +1,25 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "levanter"
-version = "0.0.1"
+version = "1.0"
 authors = [
   { name="David Hall", email="dlwh@cs.stanford.edu" },
   {name="Ivan Zhou", email="ivanz@stanford.edu"}
 ]
-description = "Scalable Training for Foundation Models with Named Tensors and Jax"
+description = "Scalable Training for Foundation Models with Named Tensors and JAX"
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: Apache Software License 2.0",
-    "Operating System :: Linux",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
 ]
-
 dependencies = [
     # we'll require that you install jax yourself, since the extras vary by system.
     # jax = {version = ">=0.4.10,<0.5.0"}
@@ -48,6 +47,22 @@ dependencies = [
     "rich>=13",
 ]
 
+[tool.hatch.build]
+include = [
+  "config/*.yaml", "config/*/*.yaml"
+]
+dev-mode-dirs = [".", "src"]
+
+[tool.hatch.build.sources]
+"src/levanter" = "levanter"
+"src/haliax" = "haliax"
+"config" = "levanter/config"
+
+
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/levanter", "src/haliax", "config"]
+
 [project.urls]
 "Homepage" = "https://github.com/stanford-crfm/levanter"
 "Bug Tracker" = "https://github.com/stanford-crfm/levanter/issues"
@@ -56,7 +71,7 @@ dependencies = [
 [tool.black]
 line-length = 119
 target-version = ["py310"]
-experimental_string_processing = true
+preview = true
 
 [tool.isort]
 profile = "black"

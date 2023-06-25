@@ -27,6 +27,7 @@ from levanter.logging import silence_transformer_nag  # noqa
 silence_transformer_nag()  # noqa
 from transformers import BatchEncoding, PreTrainedTokenizerBase, PreTrainedTokenizerFast  # noqa
 
+from levanter.compat.hf_checkpoints import load_tokenizer  # noqa
 from levanter.data.dataset import ShardableDataset  # noqa
 from levanter.data.shard_cache import DEFAULT_ROWS_PER_CHUNK  # noqa
 from levanter.data.shard_cache import LEDGER_FILE_NAME as NEW_LEDGER_FILE_NAME  # noqa
@@ -44,7 +45,6 @@ from levanter.data.shard_cache import (  # noqa
     cache_dataset,
 )
 from levanter.shapes import NamedShapeSpec, ShapeSpec  # noqa
-from levanter.utils.hf_utils import load_tokenizer  # noqa
 
 
 logger = logging.getLogger("levanter.data.text")
@@ -171,6 +171,7 @@ class TokenizedDocumentCache(ShardableDataset[BatchEncoding]):
         batch_size=128,
         rows_per_chunk=DEFAULT_ROWS_PER_CHUNK,
         monitors=None,
+        await_finished=True,
     ) -> "TokenizedDocumentCache":
         bt = BatchTokenizer(tokenizer, enforce_eos=enforce_eos)
         monitors = monitors or []
@@ -178,7 +179,7 @@ class TokenizedDocumentCache(ShardableDataset[BatchEncoding]):
             cache_dir,
             source,
             bt,
-            await_finished=False,
+            await_finished=await_finished,
             batch_size=batch_size,
             rows_per_chunk=rows_per_chunk,
             monitors=monitors,
@@ -458,6 +459,8 @@ class LMDatasetConfig:
             flatten_docs=True,
             rows_per_chunk=self.rows_per_chunk,
             monitors=monitors,
+            # TODO: it would be better if we could just prioritize validation higher (we typically want it after the first grad step)
+            await_finished=(split == "validation"),
         )
 
     def doc_iterator(self, split: str):
