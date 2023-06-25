@@ -31,6 +31,7 @@ from levanter.utils.py_utils import non_caching_cycle
 
 
 logger = logging.getLogger(__name__)
+jax.config.update("jax_default_prng_impl", "unsafe_rbg")
 
 
 @dataclass
