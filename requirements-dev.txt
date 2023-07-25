@@ -1,25 +1,29 @@
 numpy==1.24.3 # tensorflow 2.13.0 depends on numpy<=1.24.3 and >=1.22
---pre
---find-links https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-jax[cuda11_cudnn86]==0.4.13
-jaxlib[cuda11_cudnn86]==0.4.13
-flax==0.6.11
-pydantic==1.10.11
-torch==2.0.1 
-tensorflow==2.13.0
-tensorrt==8.5.3.1
-xformers==0.0.20
-sentencepiece==0.1.99
-sacremoses==0.0.53
-accelerate==0.20.3
-evaluate==0.4.0
-sklearn==0.0
-deepspeed==0.9.5
 jupyterlab==4.0.2
 notebook==6.5.4
 ipywidgets==8.0.7
 pytest==7.4.0
 pre-commit==3.3.3
+--pre
+--find-links https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+# jax[cuda11_cudnn86]==0.4.13
+# jaxlib[cuda11_cudnn86]==0.4.13
+jax[cuda12_cudnn89]==0.4.13
+jaxlib[cuda12_cudnn89]==0.4.13
+flax==0.6.11
+pydantic==1.10.11
+ray==2.6.1
+# torch==2.0.1
+# tensorflow==2.13.0
+# tensorrt==8.5.3.1
+# xformers==0.0.20
+# sentencepiece==0.1.99
+# sacremoses==0.0.53
+# accelerate==0.20.3
+# evaluate==0.4.0
+# sklearn==0.0
+# deepspeed==0.9.5
+
 # Tensorflow and PyTorch are built and tested to work with CUDA 11.8 and CUDNN 8.6.
 # Flax, jax, and jaxlib will work with CUDA 12 and CUDNN 8.9
 # The jax and jaxlib lines above can be replaced with the following, but everthing from torch
