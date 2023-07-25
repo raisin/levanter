@@ -1,4 +1,5 @@
-data: !include data/openwebtext_source.yaml
+data:
+  id: dlwh/wikitext_103_detokenized
 model:
   type: gpt2
   hidden_dim: 768
@@ -12,12 +13,19 @@ trainer:
     project: "levanter"
     tags: [ "openwebtext", "gpt2"]
 
-  mp: p=f32,c=bfloat16
+  mp: p=f32
+  num_train_steps: 5000
   model_axis_size: 1
-  per_device_parallelism: 4
+  per_device_parallelism: 1
 
-  train_batch_size: 512
+  train_batch_size: 8
+
+  checkpointer:
+    keep:
+      - every: 100
+    save_interval: 5m
+
 optimizer:
-  learning_rate: 6E-4
+  learning_rate: 1E-3
   weight_decay: 0.1
   min_lr_ratio: 0.1
